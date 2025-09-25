@@ -1,0 +1,36 @@
+# Environment files with real credentials
+.env
+.env.local
+.env.production
+.env.development
+
+# Build artifacts
+mcp-server
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go test files
+*.test
+*.out
+*.prof
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
