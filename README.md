@@ -17,7 +17,7 @@ A universal **Model Context Protocol (MCP) server** with **OAuth 2.1** authentic
 ```bash
 git clone <repository>
 cd mcp-oauth-server
-go build -o mcp-server .
+make build
 ```
 
 ### 2. Configure Your OIDC Provider
@@ -40,7 +40,7 @@ cp .env.example .env
 
 ### 3. Start the Server
 ```bash
-./mcp-server
+make run
 ```
 
 ### 4. Configure Your MCP Client
