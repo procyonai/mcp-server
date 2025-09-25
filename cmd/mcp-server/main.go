@@ -61,6 +61,7 @@ func main() {
 	
 	http.Handle("/register", loggingMiddleware(http.HandlerFunc(oauthServer.HandleRegister)))
 	http.Handle("/authorize", loggingMiddleware(http.HandlerFunc(oauthServer.HandleAuthorize)))
+	http.Handle("/consent", loggingMiddleware(http.HandlerFunc(oauthServer.HandleConsent)))
 	http.Handle("/token", loggingMiddleware(http.HandlerFunc(oauthServer.HandleToken)))
 	http.Handle("/callback", loggingMiddleware(http.HandlerFunc(oauthServer.HandleCallback)))
 	
@@ -73,6 +74,7 @@ func main() {
 	log.Printf("  Authorization Server Metadata: http://localhost:%s/.well-known/oauth-authorization-server", port)
 	log.Printf("  Client Registration: http://localhost:%s/register", port)
 	log.Printf("  Authorization: http://localhost:%s/authorize", port)
+	log.Printf("  User Consent: http://localhost:%s/consent", port)
 	log.Printf("  Token: http://localhost:%s/token", port)
 	log.Printf("  OAuth Callback: http://localhost:%s/callback", port)
 	log.Printf("  Protected MCP Resource: http://localhost:%s/sse", port)
