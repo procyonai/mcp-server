@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -45,6 +46,7 @@ type AuthCode struct {
 	ExpiresAt    time.Time
 	CodeChallenge string
 	CodeChallengeMethod string
+	OIDCAccessToken string
 }
 
 type AccessToken struct {
@@ -52,6 +54,7 @@ type AccessToken struct {
 	ClientID   string
 	Scope      string
 	UserID     string
+	UserEmail  string
 	ExpiresAt  time.Time
 	CreatedAt  time.Time
 }
@@ -272,16 +275,32 @@ func (s *Server) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	// Read the entire response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading OIDC token response: %v", err)
+		http.Error(w, "Failed to read OIDC token response", http.StatusInternalServerError)
+		return
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		// Read the response body for debugging
-		bodyBytes := make([]byte, 1024)
-		n, _ := resp.Body.Read(bodyBytes)
-		bodyStr := string(bodyBytes[:n])
+		// Log the response body for debugging
+		bodyStr := string(bodyBytes)
 		log.Printf("Token exchange failed with status %d: %s", resp.StatusCode, bodyStr)
 		log.Printf("Request URL: %s", s.oidcTokenURL)
 		log.Printf("Request data: %s", tokenData.Encode())
 		http.Error(w, fmt.Sprintf("Token exchange failed with status: %d", resp.StatusCode), http.StatusBadRequest)
 		return
+	}
+
+	// Parse the OIDC token response to get the access token
+	var oidcTokenResponse TokenResponse
+	var oidcAccessToken string = ""
+	if err := json.Unmarshal(bodyBytes, &oidcTokenResponse); err != nil {
+		log.Printf("⚠️  Could not parse OIDC token response: %v", err)
+	} else {
+		oidcAccessToken = oidcTokenResponse.AccessToken
+		log.Printf("✅ Successfully got OIDC access token: %s", oidcAccessToken[:8]+"...")
 	}
 
 	// Generate our own authorization code for the MCP client
@@ -294,6 +313,7 @@ func (s *Server) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:    time.Now().Add(10 * time.Minute),
 		CodeChallenge: codeChallenge,
 		CodeChallengeMethod: codeChallengeMethod,
+		OIDCAccessToken: oidcAccessToken,
 	}
 
 	// Redirect back to MCP client
@@ -363,8 +383,18 @@ func (s *Server) HandleToken(w http.ResponseWriter, r *http.Request) {
 		ClientID:  clientID,
 		Scope:     authCode.Scope,
 		UserID:    "authenticated_user",
+		UserEmail: "",
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 		CreatedAt: time.Now(),
+	}
+
+	// Try to fetch user info in the background (don't block OAuth flow)
+	// Use the stored OIDC access token if available
+	if authCode.OIDCAccessToken != "" {
+		log.Printf("🚀 Starting background user info fetch for token: %s", accessToken[:8]+"...")
+		go s.fetchAndUpdateUserInfoFromOIDC(accessToken, authCode.OIDCAccessToken)
+	} else {
+		log.Printf("⚠️  No OIDC access token available for user info fetch")
 	}
 
 	// Clean up authorization code
@@ -475,4 +505,67 @@ func (s *Server) sendAuthChallenge(w http.ResponseWriter) {
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+// fetchAndUpdateUserInfoFromOIDC fetches real user info from OIDC provider in the background
+func (s *Server) fetchAndUpdateUserInfoFromOIDC(accessToken, oidcAccessToken string) {
+	// This runs in a goroutine, so we don't block the OAuth flow
+	log.Printf("🔄 Fetching real user info from OIDC provider for token: %s", accessToken[:8]+"...")
+	
+	// Fetch user info using the OIDC access token
+	userInfo, err := s.fetchUserInfoFromProvider(oidcAccessToken)
+	if err != nil {
+		log.Printf("⚠️  Failed to fetch user info from OIDC provider: %v", err)
+		return
+	}
+	
+	// Update our access token with real user info
+	if token, exists := s.tokens[accessToken]; exists {
+		token.UserID = userInfo.Sub
+		if userInfo.Email != "" {
+			token.UserEmail = userInfo.Email
+			token.UserID = userInfo.Email // Use email as primary identifier
+		}
+		
+		log.Printf("✅ Updated with REAL user info - UserID: %s, Email: %s, Name: %s", token.UserID, token.UserEmail, userInfo.Name)
+	} else {
+		log.Printf("⚠️  Token %s no longer exists, skipping user info update", accessToken[:8]+"...")
+	}
+}
+
+// fetchUserInfoFromProvider fetches user info from the OIDC userinfo endpoint
+func (s *Server) fetchUserInfoFromProvider(oidcAccessToken string) (*UserInfo, error) {
+	log.Printf("🔍 OIDC userinfo URL configured as: %s", s.oidcUserURL)
+	if s.oidcUserURL == "" {
+		return nil, fmt.Errorf("OIDC userinfo URL not configured")
+	}
+	
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	
+	req, err := http.NewRequest("GET", s.oidcUserURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create userinfo request: %v", err)
+	}
+	
+	req.Header.Set("Authorization", "Bearer "+oidcAccessToken)
+	req.Header.Set("Accept", "application/json")
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch userinfo: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("userinfo request failed with status: %d", resp.StatusCode)
+	}
+	
+	var userInfo UserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse userinfo: %v", err)
+	}
+	
+	return &userInfo, nil
 }

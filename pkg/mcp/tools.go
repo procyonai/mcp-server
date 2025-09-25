@@ -3,11 +3,13 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/example/mcp-gw/pkg/oauth"
 )
 
 // Tool argument and output types
@@ -41,6 +43,13 @@ type StockOutput struct {
 
 // Tool handlers
 func HandleEcho(ctx context.Context, request *mcp.CallToolRequest, args EchoArgs) (*mcp.CallToolResult, EchoOutput, error) {
+	// Log user details if available
+	if accessToken := ctx.Value("access_token"); accessToken != nil {
+		if token, ok := accessToken.(*oauth.AccessToken); ok {
+			log.Printf("Echo tool called - UserID: %s, ClientID: %s", token.UserID, token.ClientID)
+		}
+	}
+
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{
@@ -53,6 +62,13 @@ func HandleEcho(ctx context.Context, request *mcp.CallToolRequest, args EchoArgs
 }
 
 func HandleSum(ctx context.Context, request *mcp.CallToolRequest, args SumArgs) (*mcp.CallToolResult, SumOutput, error) {
+	// Log user details if available
+	if accessToken := ctx.Value("access_token"); accessToken != nil {
+		if token, ok := accessToken.(*oauth.AccessToken); ok {
+			log.Printf("Sum tool called - UserID: %s, ClientID: %s", token.UserID, token.ClientID)
+		}
+	}
+
 	result := args.A + args.B
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
@@ -66,6 +82,13 @@ func HandleSum(ctx context.Context, request *mcp.CallToolRequest, args SumArgs) 
 }
 
 func HandleStockPrice(ctx context.Context, request *mcp.CallToolRequest, args StockArgs) (*mcp.CallToolResult, StockOutput, error) {
+	// Log user details if available
+	if accessToken := ctx.Value("access_token"); accessToken != nil {
+		if token, ok := accessToken.(*oauth.AccessToken); ok {
+			log.Printf("Stock price tool called - UserID: %s, ClientID: %s, Symbol: %s", token.UserID, token.ClientID, args.Symbol)
+		}
+	}
+
 	// Mock stock data with some realistic prices (for demo purposes)
 	stockData := map[string]float64{
 		"AAPL":  185.25 + rand.Float64()*10 - 5, // Apple
