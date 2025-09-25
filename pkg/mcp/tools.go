@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/example/mcp-gw/pkg/oauth"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Tool argument and output types
@@ -46,55 +46,55 @@ func HandleEcho(ctx context.Context, request *mcp.CallToolRequest, args EchoArgs
 	// Log user details if available
 	if accessToken := ctx.Value("access_token"); accessToken != nil {
 		if token, ok := accessToken.(*oauth.AccessToken); ok {
-			log.Printf("Echo tool called - UserID: %s, ClientID: %s", token.UserID, token.ClientID)
+			log.Printf("Echo tool called - UserID: %s, UserEmail: %s", token.UserID, token.UserEmail)
 		}
 	}
 
 	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{
-				Text: "Echo: " + args.Message,
+			Content: []mcp.Content{
+				&mcp.TextContent{
+					Text: "Echo: " + args.Message,
+				},
 			},
-		},
-	}, EchoOutput{
-		EchoedMessage: args.Message,
-	}, nil
+		}, EchoOutput{
+			EchoedMessage: args.Message,
+		}, nil
 }
 
 func HandleSum(ctx context.Context, request *mcp.CallToolRequest, args SumArgs) (*mcp.CallToolResult, SumOutput, error) {
 	// Log user details if available
 	if accessToken := ctx.Value("access_token"); accessToken != nil {
 		if token, ok := accessToken.(*oauth.AccessToken); ok {
-			log.Printf("Sum tool called - UserID: %s, ClientID: %s", token.UserID, token.ClientID)
+			log.Printf("Sum tool called - UserID: %s, UserEmail: %s", token.UserID, token.UserEmail)
 		}
 	}
 
 	result := args.A + args.B
 	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{
-				Text: fmt.Sprintf("The sum of %.2f and %.2f is %.2f", args.A, args.B, result),
+			Content: []mcp.Content{
+				&mcp.TextContent{
+					Text: fmt.Sprintf("The sum of %.2f and %.2f is %.2f", args.A, args.B, result),
+				},
 			},
-		},
-	}, SumOutput{
-		Result: result,
-	}, nil
+		}, SumOutput{
+			Result: result,
+		}, nil
 }
 
 func HandleStockPrice(ctx context.Context, request *mcp.CallToolRequest, args StockArgs) (*mcp.CallToolResult, StockOutput, error) {
 	// Log user details if available
 	if accessToken := ctx.Value("access_token"); accessToken != nil {
 		if token, ok := accessToken.(*oauth.AccessToken); ok {
-			log.Printf("Stock price tool called - UserID: %s, ClientID: %s, Symbol: %s", token.UserID, token.ClientID, args.Symbol)
+			log.Printf("Stock price tool called - UserID: %s, UserEmail: %s, Symbol: %s", token.UserID, token.UserEmail, args.Symbol)
 		}
 	}
 
 	// Mock stock data with some realistic prices (for demo purposes)
 	stockData := map[string]float64{
-		"AAPL":  185.25 + rand.Float64()*10 - 5, // Apple
-		"GOOGL": 135.50 + rand.Float64()*10 - 5, // Google
-		"MSFT":  378.90 + rand.Float64()*10 - 5, // Microsoft
-		"AMZN":  145.75 + rand.Float64()*10 - 5, // Amazon
+		"AAPL":  185.25 + rand.Float64()*10 - 5,  // Apple
+		"GOOGL": 135.50 + rand.Float64()*10 - 5,  // Google
+		"MSFT":  378.90 + rand.Float64()*10 - 5,  // Microsoft
+		"AMZN":  145.75 + rand.Float64()*10 - 5,  // Amazon
 		"TSLA":  205.30 + rand.Float64()*20 - 10, // Tesla (more volatile)
 		"NVDA":  485.60 + rand.Float64()*20 - 10, // NVIDIA
 		"META":  325.40 + rand.Float64()*15 - 7,  // Meta
@@ -105,7 +105,7 @@ func HandleStockPrice(ctx context.Context, request *mcp.CallToolRequest, args St
 
 	symbol := strings.ToUpper(args.Symbol)
 	price, exists := stockData[symbol]
-	
+
 	if !exists {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -118,7 +118,7 @@ func HandleStockPrice(ctx context.Context, request *mcp.CallToolRequest, args St
 
 	// Add some randomness to simulate real-time changes
 	rand.Seed(time.Now().UnixNano())
-	
+
 	output := StockOutput{
 		Symbol:      symbol,
 		Price:       price,

@@ -18,16 +18,16 @@ import (
 
 // Server that mimics the TypeScript implementation for MCP clients like Cursor
 type Server struct {
-	serverURL      string
-	oidcClientID   string
-	oidcSecret     string
-	oidcAuthURL    string
-	oidcTokenURL   string
-	oidcUserURL    string
-	oidcScopes     string
-	clients        map[string]*Client
-	authCodes      map[string]*AuthCode
-	tokens         map[string]*AccessToken
+	serverURL    string
+	oidcClientID string
+	oidcSecret   string
+	oidcAuthURL  string
+	oidcTokenURL string
+	oidcUserURL  string
+	oidcScopes   string
+	clients      map[string]*Client
+	authCodes    map[string]*AuthCode
+	tokens       map[string]*AccessToken
 }
 
 type Client struct {
@@ -39,24 +39,24 @@ type Client struct {
 }
 
 type AuthCode struct {
-	Code         string
-	ClientID     string
-	RedirectURI  string
-	Scope        string
-	ExpiresAt    time.Time
-	CodeChallenge string
+	Code                string
+	ClientID            string
+	RedirectURI         string
+	Scope               string
+	ExpiresAt           time.Time
+	CodeChallenge       string
 	CodeChallengeMethod string
-	OIDCAccessToken string
+	OIDCAccessToken     string
 }
 
 type AccessToken struct {
-	Token      string
-	ClientID   string
-	Scope      string
-	UserID     string
-	UserEmail  string
-	ExpiresAt  time.Time
-	CreatedAt  time.Time
+	Token     string
+	ClientID  string
+	Scope     string
+	UserID    string
+	UserEmail string
+	ExpiresAt time.Time
+	CreatedAt time.Time
 }
 
 type ClientRegistrationRequest struct {
@@ -134,14 +134,14 @@ func NewServer() *Server {
 // HandleMetadata returns OAuth2 authorization server metadata
 func (s *Server) HandleMetadata(w http.ResponseWriter, r *http.Request) {
 	metadata := AuthServerMetadata{
-		Issuer:                s.serverURL,
-		AuthorizationEndpoint: fmt.Sprintf("%s/authorize", s.serverURL),
-		TokenEndpoint:         fmt.Sprintf("%s/token", s.serverURL),
-		RegistrationEndpoint:  fmt.Sprintf("%s/register", s.serverURL),
-		ScopesSupported:       []string{"openid", "profile", "email"},
-		ResponseTypesSupported: []string{"code"},
-		GrantTypesSupported:   []string{"authorization_code"},
-		TokenEndpointAuthMethods: []string{"client_secret_post", "none"},
+		Issuer:                        s.serverURL,
+		AuthorizationEndpoint:         fmt.Sprintf("%s/authorize", s.serverURL),
+		TokenEndpoint:                 fmt.Sprintf("%s/token", s.serverURL),
+		RegistrationEndpoint:          fmt.Sprintf("%s/register", s.serverURL),
+		ScopesSupported:               []string{"openid", "profile", "email"},
+		ResponseTypesSupported:        []string{"code"},
+		GrantTypesSupported:           []string{"authorization_code"},
+		TokenEndpointAuthMethods:      []string{"client_secret_post", "none"},
 		CodeChallengeMethodsSupported: []string{"S256"},
 	}
 
@@ -218,7 +218,7 @@ func (s *Server) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 	// Use base64 encoding for state to avoid URL encoding issues
 	stateData := fmt.Sprintf("%s|%s|%s|%s|%s", clientID, redirectURI, state, codeChallenge, codeChallengeMethod)
 	encodedState := base64.URLEncoding.EncodeToString([]byte(stateData))
-	
+
 	params := url.Values{}
 	params.Add("client_id", s.oidcClientID)
 	params.Add("redirect_uri", fmt.Sprintf("%s/callback", s.serverURL))
@@ -234,7 +234,7 @@ func (s *Server) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
-	
+
 	if code == "" || state == "" {
 		http.Error(w, "Missing code or state", http.StatusBadRequest)
 		return
@@ -247,7 +247,7 @@ func (s *Server) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid state encoding", http.StatusBadRequest)
 		return
 	}
-	
+
 	stateParts := strings.Split(string(decodedState), "|")
 	if len(stateParts) != 5 {
 		http.Error(w, fmt.Sprintf("Invalid state format: expected 5 parts, got %d", len(stateParts)), http.StatusBadRequest)
@@ -306,14 +306,14 @@ func (s *Server) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	// Generate our own authorization code for the MCP client
 	authCode := generateRandomString(32)
 	s.authCodes[authCode] = &AuthCode{
-		Code:         authCode,
-		ClientID:     clientID,
-		RedirectURI:  redirectURI,
-		Scope:        "openid profile email",
-		ExpiresAt:    time.Now().Add(10 * time.Minute),
-		CodeChallenge: codeChallenge,
+		Code:                authCode,
+		ClientID:            clientID,
+		RedirectURI:         redirectURI,
+		Scope:               "openid profile email",
+		ExpiresAt:           time.Now().Add(10 * time.Minute),
+		CodeChallenge:       codeChallenge,
 		CodeChallengeMethod: codeChallengeMethod,
-		OIDCAccessToken: oidcAccessToken,
+		OIDCAccessToken:     oidcAccessToken,
 	}
 
 	// Redirect back to MCP client
@@ -415,7 +415,7 @@ func (s *Server) HandleToken(w http.ResponseWriter, r *http.Request) {
 func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
-		
+
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			s.sendAuthChallenge(w)
 			return
@@ -423,7 +423,7 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 		accessToken, exists := s.tokens[token]
-		
+
 		if !exists || accessToken.ExpiresAt.Before(time.Now()) {
 			if exists {
 				delete(s.tokens, token)
@@ -441,7 +441,7 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 // exchangeTokenWithFallback tries both client authentication methods
 func (s *Server) exchangeTokenWithFallback(tokenData url.Values) (*http.Response, error) {
 	client := &http.Client{}
-	
+
 	// Method 1: Try HTTP Basic Auth (client_secret_basic) - preferred method
 	log.Printf("Attempting token exchange with HTTP Basic Auth")
 	req1, err := http.NewRequest("POST", s.oidcTokenURL, strings.NewReader(tokenData.Encode()))
@@ -450,7 +450,7 @@ func (s *Server) exchangeTokenWithFallback(tokenData url.Values) (*http.Response
 	}
 	req1.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req1.SetBasicAuth(s.oidcClientID, s.oidcSecret)
-	
+
 	resp1, err := client.Do(req1)
 	if err != nil {
 		log.Printf("Basic Auth request failed: %v", err)
@@ -466,7 +466,7 @@ func (s *Server) exchangeTokenWithFallback(tokenData url.Values) (*http.Response
 		log.Printf("HTTP Basic Auth returned status %d, returning for error handling", resp1.StatusCode)
 		return resp1, nil
 	}
-	
+
 	// Method 2: Fallback to form data (client_secret_post)
 	log.Printf("Attempting token exchange with form data (client_secret_post)")
 	tokenDataWithCredentials := url.Values{}
@@ -475,19 +475,19 @@ func (s *Server) exchangeTokenWithFallback(tokenData url.Values) (*http.Response
 	}
 	tokenDataWithCredentials.Set("client_id", s.oidcClientID)
 	tokenDataWithCredentials.Set("client_secret", s.oidcSecret)
-	
+
 	resp2, err := http.PostForm(s.oidcTokenURL, tokenDataWithCredentials)
 	if err != nil {
-		return nil, fmt.Errorf("both auth methods failed - basic auth: %v, form data: %v", 
+		return nil, fmt.Errorf("both auth methods failed - basic auth: %v, form data: %v",
 			fmt.Errorf("status %d", resp1.StatusCode), err)
 	}
-	
+
 	if resp2.StatusCode == http.StatusOK {
 		log.Printf("✅ Token exchange successful with form data fallback")
 	} else {
 		log.Printf("❌ Both authentication methods failed - Basic Auth: 401, Form Data: %d", resp2.StatusCode)
 	}
-	
+
 	return resp2, nil
 }
 
@@ -511,23 +511,22 @@ func (s *Server) sendAuthChallenge(w http.ResponseWriter) {
 func (s *Server) fetchAndUpdateUserInfoFromOIDC(accessToken, oidcAccessToken string) {
 	// This runs in a goroutine, so we don't block the OAuth flow
 	log.Printf("🔄 Fetching real user info from OIDC provider for token: %s", accessToken[:8]+"...")
-	
+
 	// Fetch user info using the OIDC access token
 	userInfo, err := s.fetchUserInfoFromProvider(oidcAccessToken)
 	if err != nil {
 		log.Printf("⚠️  Failed to fetch user info from OIDC provider: %v", err)
 		return
 	}
-	
+
 	// Update our access token with real user info
 	if token, exists := s.tokens[accessToken]; exists {
 		token.UserID = userInfo.Sub
 		if userInfo.Email != "" {
 			token.UserEmail = userInfo.Email
-			token.UserID = userInfo.Email // Use email as primary identifier
 		}
-		
-		log.Printf("✅ Updated with REAL user info - UserID: %s, Email: %s, Name: %s", token.UserID, token.UserEmail, userInfo.Name)
+
+		log.Printf("✅ Updated with REAL user info - UserID: %s, Email: %s", token.UserID, token.UserEmail)
 	} else {
 		log.Printf("⚠️  Token %s no longer exists, skipping user info update", accessToken[:8]+"...")
 	}
@@ -539,33 +538,33 @@ func (s *Server) fetchUserInfoFromProvider(oidcAccessToken string) (*UserInfo, e
 	if s.oidcUserURL == "" {
 		return nil, fmt.Errorf("OIDC userinfo URL not configured")
 	}
-	
+
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
-	
+
 	req, err := http.NewRequest("GET", s.oidcUserURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create userinfo request: %v", err)
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+oidcAccessToken)
 	req.Header.Set("Accept", "application/json")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch userinfo: %v", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("userinfo request failed with status: %d", resp.StatusCode)
 	}
-	
+
 	var userInfo UserInfo
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return nil, fmt.Errorf("failed to parse userinfo: %v", err)
 	}
-	
+
 	return &userInfo, nil
 }
