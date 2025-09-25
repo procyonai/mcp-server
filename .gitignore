@@ -5,7 +5,7 @@
 .env.development
 
 # Build artifacts
-mcp-server
+/mcp-server
 bin/
 *.exe
 *.dll
